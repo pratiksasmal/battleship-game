@@ -82,7 +82,7 @@ class Position {
     }
 }
 
-class Game {
+class Player {
     final String[][] board = new String[10][];
     final String[] ROW_KEYS = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"};
     final Ship[] SHIPS = {
@@ -93,13 +93,14 @@ class Game {
             new Ship("Destroyer", 2)
     };
 
-    Game() {
-        for (int i = 0; i < 10; i++) {
+    Player() {
+        for (int y = 0; y < 10; y++) {
             String[] row = new String[10];
             Arrays.fill(row, "~");
-            board[i] = row;
+            board[y] = row;
         }
     }
+
 
     void printBoard(Boolean fog) {
         System.out.print(" ");
@@ -147,13 +148,13 @@ class Game {
 
         if (start_x == stop_x) {
             for (int y = start_y; y != stop_y + 1; y++) {
-                if (areNeighbors(start_x, y)) {
+                if (hasNeighbors(start_x, y)) {
                     return false;
                 }
             }
         } else {
             for (int x = start_x; x != stop_x + 1; x++) {
-                if (areNeighbors(x, start_y)) {
+                if (hasNeighbors(x, start_y)) {
                     return false;
                 }
             }
@@ -162,7 +163,11 @@ class Game {
         return true;
     }
 
-    private boolean areNeighbors(int x, int y) {
+    /*
+     *
+     * Check if there is "O" near the given point.
+     */
+    private boolean hasNeighbors(int x, int y) {
         Shift[] shifts = {
                 new Shift(-1, 1),
                 new Shift(0, 1),
@@ -176,7 +181,7 @@ class Game {
 
         for (Shift shift : shifts) {
             try {
-                if (!board[y + shift.y][x + shift.x].equals("~")) {
+                if (board[y + shift.y][x + shift.x].equals("O")) {
                     return true;
                 }
             } catch (ArrayIndexOutOfBoundsException ignored) {}
@@ -216,6 +221,8 @@ class Game {
     }
 
     void placeShips() {
+        printBoard();
+
         for (Ship ship : SHIPS) {
             System.out.printf("Enter the coordinates of the %s (%d cells):", ship.name, ship.size);
             System.out.println();
@@ -244,10 +251,8 @@ class Game {
         }
     }
 
-    void fire() {
+    Coordinate askForCoordinate() {
         Coordinate coordinate;
-        System.out.println("Take a shot!");
-        System.out.println();
 
         while (true) {
             try {
@@ -261,19 +266,69 @@ class Game {
         }
 
         System.out.println();
+        return coordinate;
+    }
 
-        if (board[coordinate.y][coordinate.x].equals("O")) {
+    void fire() {
+        Coordinate coordinate = askForCoordinate();
+
+        if (!board[coordinate.y][coordinate.x].equals("~")) {
             board[coordinate.y][coordinate.x] = "X";
             printBoard(true);
-            System.out.println("You hit a ship!");
+
+            if (shipIsStillAfloat(coordinate)) {
+                System.out.println("You hit a ship! Try again:");
+            } else if (hasShips()) {
+                System.out.println("You sank a ship! Specify a new target:");
+            } else {
+                System.out.print("You sank the last ship. You won. Congratulations!");
+            }
         } else {
             board[coordinate.y][coordinate.x] = "M";
             printBoard(true);
-            System.out.println("You missed!");
+            System.out.println("You missed! Try again:");
         }
 
         System.out.println();
-        printBoard();
+    }
+
+    private boolean shipIsStillAfloat(Coordinate coordinate) {
+        return hasNeighbors(coordinate.x, coordinate.y);
+    }
+
+    public boolean hasShips() {
+        for (int y = 0; y < 10; y++) {
+            for (int x = 0; x < 10; x++) {
+                if (board[y][x].equals("O")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+class Game {
+    Player player;
+
+    Game() {
+        player = new Player();
+    }
+
+    void placeShips() {
+        player.placeShips();
+    }
+
+    void play() {
+        System.out.println("The game starts!");
+        System.out.println();
+        player.printBoard(true);
+        System.out.println("Take a shot!");
+        System.out.println();
+
+        while (player.hasShips()) {
+            player.fire();
+        }
     }
 }
 
@@ -281,13 +336,7 @@ public class Main {
 
     public static void main(String[] args) {
         Game game = new Game();
-        game.printBoard();
         game.placeShips();
-
-        System.out.println("The game starts!");
-        System.out.println();
-
-        game.printBoard(true);
-        game.fire();
+        game.play();
     }
 }
