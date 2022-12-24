@@ -51,8 +51,8 @@ class Coordinate {
     }
 
     static Coordinate readCoordinate() throws WrongLocationException {
-        Scanner scanner = new Scanner(System.in);
-        String input = scanner.next();
+        Scanner sc = new Scanner(System.in);
+        String input = sc.next();
         return new Coordinate(input);
     }
 }
@@ -83,9 +83,12 @@ class Position {
 }
 
 class Player {
+    final String name;
     final String[][] board = new String[10][];
+    final String[][] opponent_view = new String[10][];
     final String[] ROW_KEYS = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"};
     final Ship[] SHIPS = {
+            //name and size of each ship
             new Ship("Aircraft Carrier", 5),
             new Ship("Battleship", 4),
             new Ship("Submarine", 3),
@@ -93,39 +96,46 @@ class Player {
             new Ship("Destroyer", 2)
     };
 
-    Player() {
+    Player(String name) {
+        this.name = name;
+
         for (int y = 0; y < 10; y++) {
             String[] row = new String[10];
             Arrays.fill(row, "~");
             board[y] = row;
         }
+
+        for (int y = 0; y < 10; y++) {
+            String[] row = new String[10];
+            Arrays.fill(row, "~");
+            opponent_view[y] = row;
+        }
     }
 
 
-    void printBoard(Boolean fog) {
+    void printBoard(String[][] board) {
         System.out.print(" ");
         for (int i = 1; i < 11; i++) {
             System.out.print(" " + i);
         }
         System.out.println();
 
-        for (int i = 0; i < 10; i++) {
-            System.out.print(ROW_KEYS[i]);
-            for (int j = 0; j < 10; j++) {
-                String cell = board[i][j];
-                if (fog && cell.equals("O")) {
-                    System.out.print(" ~");
-                } else {
-                    System.out.print(" " + cell);
-                }
+        for (int y = 0; y < 10; y++) {
+            System.out.print(ROW_KEYS[y]);
+            for (int x = 0; x < 10; x++) {
+                String cell = board[y][x];
+                System.out.print(" " + cell);
             }
             System.out.println();
         }
         System.out.println();
     }
-    void printBoard() {
-        printBoard(false);
+    void printBoards() {
+        printBoard(opponent_view);
+        System.out.println("---------------------");
+        printBoard(board);
     }
+
 
     private boolean isValidSize(Position position, int size) {
         if (position.start.x == position.stop.x) {
@@ -182,7 +192,7 @@ class Player {
         for (Shift shift : shifts) {
             try {
                 if (board[y + shift.y][x + shift.x].equals("O")) {
-                    return true;
+                    return true; //valid neighbour
                 }
             } catch (ArrayIndexOutOfBoundsException ignored) {}
         }
@@ -207,21 +217,23 @@ class Player {
         int stop_y = position.stop.y;
 
         assert start_x == stop_x || start_y == stop_y;
-        assert stop_x - start_x + 1 == size || stop_y - start_y + 1 == size;
+        assert stop_x - start_x+1 == size || stop_y - start_y+1 == size;
 
         if (start_x == stop_x) {
-            for (int y = start_y; y != stop_y + 1; y++) {
+            for (int y = start_y; y != stop_y+1; y++) {
                 board[y][start_x] = "O";
             }
         } else {
-            for (int x = start_x; x != stop_x + 1; x++) {
+            for (int x = start_x; x != stop_x+1; x++) {
                 board[start_y][x] = "O";
             }
         }
     }
 
     void placeShips() {
-        printBoard();
+        System.out.println(name + ", place your ships on the game field");
+        System.out.println();
+        printBoard(board);
 
         for (Ship ship : SHIPS) {
             System.out.printf("Enter the coordinates of the %s (%d cells):", ship.name, ship.size);
@@ -247,12 +259,17 @@ class Player {
             }
 
             System.out.println();
-            printBoard();
+            printBoard(board);
         }
     }
 
-    Coordinate askForCoordinate() {
+
+    Coordinate fire() {
         Coordinate coordinate;
+
+        printBoards();
+        System.out.println(name + ", it's your turn:");
+        System.out.println();
 
         while (true) {
             try {
@@ -264,38 +281,13 @@ class Player {
                 System.out.println();
             }
         }
-
         System.out.println();
+
         return coordinate;
     }
-
-    void fire() {
-        Coordinate coordinate = askForCoordinate();
-
-        if (!board[coordinate.y][coordinate.x].equals("~")) {
-            board[coordinate.y][coordinate.x] = "X";
-            printBoard(true);
-
-            if (shipIsStillAfloat(coordinate)) {
-                System.out.println("You hit a ship! Try again:");
-            } else if (hasShips()) {
-                System.out.println("You sank a ship! Specify a new target:");
-            } else {
-                System.out.print("You sank the last ship. You won. Congratulations!");
-            }
-        } else {
-            board[coordinate.y][coordinate.x] = "M";
-            printBoard(true);
-            System.out.println("You missed! Try again:");
-        }
-
-        System.out.println();
-    }
-
-    private boolean shipIsStillAfloat(Coordinate coordinate) {
+    boolean shipIsStillAfloat(Coordinate coordinate) {
         return hasNeighbors(coordinate.x, coordinate.y);
     }
-
     public boolean hasShips() {
         for (int y = 0; y < 10; y++) {
             for (int x = 0; x < 10; x++) {
@@ -309,25 +301,59 @@ class Player {
 }
 
 class Game {
-    Player player;
+    Player player1;
+    Player player2;
 
     Game() {
-        player = new Player();
+        player1 = new Player("Player 1");
+        player2 = new Player("Player 2");
+    }
+
+    void passTurn() {
+        System.out.println("Press Enter and pass the move to another player");
+        System.out.println("...");
+        Scanner sc = new Scanner(System.in);
+        sc.nextLine();
     }
 
     void placeShips() {
-        player.placeShips();
+        player1.placeShips();
+        passTurn();
+
+        player2.placeShips();
+        passTurn();
+    }
+
+    //firing at other players ships
+    void fire(Player fromPlayer, Player toPlayer) {
+        Coordinate coordinate = fromPlayer.fire();
+
+        if (!toPlayer.board[coordinate.y][coordinate.x].equals("~")) {
+            //changing the view for the boards
+            toPlayer.board[coordinate.y][coordinate.x] = "X";
+            fromPlayer.opponent_view[coordinate.y][coordinate.x] = "X";
+
+            if (toPlayer.shipIsStillAfloat(coordinate)) {
+                System.out.println("You hit a ship!");
+            } else if (toPlayer.hasShips()) {
+                System.out.println("You sank a ship!");
+            } else {
+                System.out.print("You sank the last ship. You won. Congratulations!");
+                System.exit(0);
+            }
+        } else {
+            toPlayer.board[coordinate.y][coordinate.x] = "M";
+            fromPlayer.opponent_view[coordinate.y][coordinate.x] = "M";
+            System.out.println("You missed!");
+        }
     }
 
     void play() {
-        System.out.println("The game starts!");
-        System.out.println();
-        player.printBoard(true);
-        System.out.println("Take a shot!");
-        System.out.println();
-
-        while (player.hasShips()) {
-            player.fire();
+        while (player1.hasShips() || player2.hasShips()) {
+            fire(player1, player2);
+            passTurn();
+            fire(player2, player1);
+            passTurn();
         }
     }
 }
